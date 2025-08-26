@@ -9,6 +9,12 @@ CORS(app)
 
 # A more complex dictionary of pre-programmed learning modules.
 # Each module now contains a lesson AND a quiz.
+
+"""
+    Note:
+    Please consider, as testing I had used those simple prompts for quiz and lesson, you can customize it yourself.
+"""
+
 LESSONS_AND_QUIZZES = {
     "math": {
         "lesson": {
@@ -97,3 +103,4 @@ def generate_lesson():
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
+
