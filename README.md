@@ -35,7 +35,7 @@ Open a terminal, navigate to the project directory, and run:
 
 ```bash
 pip install -r requirements.txt
-
+```
 ---
 
 ### Step 3: Start the Python Backend Server
@@ -45,11 +45,13 @@ Run the backend server which handles AI logic:
 ```bash
 python main.py
 
+```
+
 ---
 
 You should see output indicating the Flask server is running at:
 
-```
+```bash
 http://127.0.0.1:5000
 ```
 
@@ -59,8 +61,9 @@ http://127.0.0.1:5000
 
 In a new terminal window, navigate to the project directory and start a simple HTTP server:
 
-```
+```bash
 python -m http.server 8000
+
 ```
 
 This serves your frontend files on port 8000. Keep this terminal open as well.
@@ -71,8 +74,9 @@ This serves your frontend files on port 8000. Keep this terminal open as well.
 
 Open your web browser and navigate to:
 
-```
+```bash
 http://localhost:8000/index.html
+
 ```
 
 You should see the Tutor Bot interface. Start asking questions about math, science, history, or other subjects in the chat box.
