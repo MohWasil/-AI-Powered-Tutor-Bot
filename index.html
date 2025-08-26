@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Teacher Application</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #e5e7eb;
+            border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
+        }
+        
+        /* Animation Keyframes */
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 5px rgba(0, 0, 0, 0.2), 0 0 10px rgba(59, 130, 246, 0.5); }
+            50% { box-shadow: 0 0 10px rgba(0, 0, 0, 0.3), 0 0 20px rgba(59, 130, 246, 0.8); }
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.03); }
+        }
+
+        @keyframes rotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        /* Animation Classes */
+        .animate-glow {
+            animation: glow 2s infinite ease-in-out;
+        }
+        .animate-pulse {
+            animation: pulse 1s infinite ease-in-out;
+        }
+        .animate-rotate {
+            animation: rotate 3s infinite linear;
+        }
+        .animate-bounce {
+            animation: bounce 1s infinite ease-in-out;
+        }
+        
+        .quiz-option {
+            transition: all 0.2s;
+        }
+        .quiz-option:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+        .correct-answer {
+            background-color: #d1fae5;
+            border-color: #34d399;
+            animation: bounce 0.5s ease-in-out;
+        }
+        .incorrect-answer {
+            background-color: #fee2e2;
+            border-color: #ef4444;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 antialiased p-6 md:p-10 lg:p-12">
+
+    <!-- Main Application Container -->
+    <div class="flex flex-col lg:flex-row w-full max-w-7xl mx-auto rounded-3xl overflow-hidden shadow-2xl bg-white h-[90vh]">
+        
+        <!-- Chat Interface (Left Side) -->
+        <div class="flex-1 flex flex-col p-4 md:p-6 lg:p-8 bg-gray-100 border-r border-gray-200">
+            <h2 class="text-xl md:text-2xl font-bold mb-4 text-center text-gray-700">Tutor Bot Chat</h2>
+            <div id="chat-history" class="flex-1 overflow-y-auto pr-4 custom-scrollbar">
+                <!-- Chat messages will be appended here -->
+            </div>
+
+            <form id="chat-form" class="mt-4 flex gap-2">
+                <input
+                    type="text"
+                    id="user-input"
+                    class="flex-1 p-3 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+                    placeholder="Ask me a question..."
+                />
+                <button
+                    type="submit"
+                    id="send-button"
+                    class="bg-blue-600 text-white p-3 rounded-full shadow-md hover:bg-blue-700 disabled:bg-gray-400 transition-all duration-200"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                </button>
+            </form>
+        </div>
+
+        <!-- Lesson Display (Right Side) -->
+        <div class="flex-1 flex flex-col p-4 md:p-6 lg:p-8">
+            <div id="lesson-display" class="flex-1 flex flex-col items-center justify-center p-4 text-center">
+                <div class="text-center text-gray-400">
+                    <p class="text-2xl font-bold mb-4">📚 Your lesson will appear here.</p>
+                    <p>Ask a question in the chat to begin your learning journey!</p>
+                </div>
+            </div>
+            <div id="error-message" class="text-red-500 mt-4 text-center hidden"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const chatForm = document.getElementById('chat-form');
+            const userInput = document.getElementById('user-input');
+            const chatHistory = document.getElementById('chat-history');
+            const sendButton = document.getElementById('send-button');
+            const lessonDisplay = document.getElementById('lesson-display');
+            const errorMessage = document.getElementById('error-message');
+
+            const API_ENDPOINT = 'http://127.0.0.1:5000/generate_lesson';
+            let currentQuiz = null;
+
+            // Function to handle the API call
+            async function generateLesson(userPrompt) {
+                try {
+                    const response = await fetch(API_ENDPOINT, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ query: userPrompt })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Server responded with status: ${response.status}`);
+                    }
+
+                    return await response.json();
+                } catch (err) {
+                    console.error("Error communicating with backend:", err);
+                    errorMessage.textContent = "Could not connect to the backend server. Please make sure the Python server is running.";
+                    errorMessage.classList.remove('hidden');
+                    return null;
+                }
+            }
+
+            // Function to add a user message to the chat history
+            function appendUserMessage(text) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'flex justify-end p-2 mb-2 bg-blue-100 rounded-lg';
+                messageDiv.innerHTML = `<p class="text-sm">${text}</p>`;
+                chatHistory.appendChild(messageDiv);
+                chatHistory.scrollTop = chatHistory.scrollHeight;
+            }
+
+            // Function to add a bot message to the chat history
+            function appendBotMessage(text) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'flex justify-start p-2 mb-2 bg-gray-200 rounded-lg';
+                messageDiv.innerHTML = `<p class="text-sm">${text}</p>`;
+                chatHistory.appendChild(messageDiv);
+                chatHistory.scrollTop = chatHistory.scrollHeight;
+            }
+
+            // Function to show a loading indicator
+            function showThinkingIndicator() {
+                const thinkingDiv = document.createElement('div');
+                thinkingDiv.id = 'thinking-indicator';
+                thinkingDiv.className = 'flex items-center p-2 mb-2 bg-gray-200 rounded-lg';
+                thinkingDiv.innerHTML = `
+                    <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-500 mr-2"></div>
+                    <p class="text-xs text-gray-600">Tutor Bot is thinking...</p>
+                `;
+                chatHistory.appendChild(thinkingDiv);
+                chatHistory.scrollTop = chatHistory.scrollHeight;
+            }
+
+            // Function to remove the loading indicator
+            function hideThinkingIndicator() {
+                const indicator = document.getElementById('thinking-indicator');
+                if (indicator) {
+                    indicator.remove();
+                }
+            }
+
+            // Function to get the animation class name
+            function getAnimationClass(animation) {
+                switch (animation) {
+                    case 'glow': return 'animate-glow';
+                    case 'pulse': return 'animate-pulse';
+                    case 'rotate': return 'animate-rotate';
+                    case 'bounce': return 'animate-bounce';
+                    default: return '';
+                }
+            }
+
+            // Function to play text as speech
+            function speakLesson(text) {
+                if ('speechSynthesis' in window) {
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.voice = speechSynthesis.getVoices().find(voice => voice.lang === 'en-US'); // Try to find a US English voice
+                    speechSynthesis.speak(utterance);
+                }
+            }
+
+            // Function to render the lesson and quiz
+            function renderLesson(data) {
+                const lesson = data.lesson;
+                currentQuiz = data.quiz;
+
+                lessonDisplay.innerHTML = `
+                    <div class="w-full max-w-xl p-6 bg-white rounded-2xl shadow-lg border border-gray-200 transition-all duration-500 ${getAnimationClass(lesson.animation)}">
+                        <h3 class="text-3xl font-extrabold mb-4 text-blue-600 leading-tight">${lesson.title}</h3>
+                        <img 
+                            src="${lesson.imageUrl}"
+                            alt="${lesson.title}"
+                            class="w-full h-auto rounded-xl shadow-md mb-4"
+                        />
+                        <p class="text-gray-700 leading-relaxed text-lg whitespace-pre-wrap">${lesson.explanation}</p>
+                        <div class="mt-4 text-sm text-gray-500 italic">
+                            Animation: "${lesson.animationReason}"
+                        </div>
+                        <button id="read-lesson-btn" class="mt-4 px-6 py-3 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors duration-200">
+                            🔊 Read Lesson
+                        </button>
+                    </div>
+                `;
+                
+                document.getElementById('read-lesson-btn').addEventListener('click', () => {
+                    speakLesson(lesson.explanation);
+                });
+
+                if (currentQuiz) {
+                    setTimeout(() => {
+                        renderQuiz(currentQuiz);
+                    }, 2000); // Give the user time to read the lesson
+                }
+            }
+
+            // Function to render the quiz section
+            function renderQuiz(quiz) {
+                lessonDisplay.innerHTML = `
+                    <div class="w-full max-w-xl p-6 bg-white rounded-2xl shadow-lg border border-gray-200 transition-all duration-500">
+                        <h3 class="text-2xl font-bold mb-4 text-blue-600">Quiz Time!</h3>
+                        <p class="text-lg mb-6">${quiz.question}</p>
+                        <div id="quiz-options" class="flex flex-col gap-4">
+                            ${quiz.options.map((option, index) => `
+                                <button
+                                    class="quiz-option p-4 border border-gray-300 rounded-xl text-left hover:bg-gray-50"
+                                    data-answer="${option}"
+                                >
+                                    ${option}
+                                </button>
+                            `).join('')}
+                        </div>
+                        <div id="quiz-feedback" class="mt-4 text-center text-sm font-semibold"></div>
+                        <button id="next-btn" class="mt-6 w-full py-3 bg-gray-400 text-white rounded-xl font-bold cursor-not-allowed" disabled>
+                            Next
+                        </button>
+                    </div>
+                `;
+
+                // Add event listeners for quiz options
+                document.querySelectorAll('.quiz-option').forEach(button => {
+                    button.addEventListener('click', handleQuizAnswer);
+                });
+            }
+
+            // Function to handle a user's quiz answer
+            function handleQuizAnswer(event) {
+                const selectedButton = event.target;
+                const userAnswer = selectedButton.dataset.answer;
+                
+                // Disable all buttons after an answer is selected
+                document.querySelectorAll('.quiz-option').forEach(btn => btn.disabled = true);
+                
+                const feedbackDiv = document.getElementById('quiz-feedback');
+                const nextButton = document.getElementById('next-btn');
+
+                if (userAnswer === currentQuiz.correctAnswer) {
+                    selectedButton.classList.add('correct-answer');
+                    feedbackDiv.innerHTML = `✅ **Correct!**`;
+                    feedbackDiv.classList.remove('text-red-500');
+                    feedbackDiv.classList.add('text-green-600');
+                    appendBotMessage("That's right! Great job.");
+                } else {
+                    selectedButton.classList.add('incorrect-answer');
+                    feedbackDiv.innerHTML = `❌ **Incorrect.** The correct answer is "${currentQuiz.correctAnswer}".`;
+                    feedbackDiv.classList.remove('text-green-600');
+                    feedbackDiv.classList.add('text-red-500');
+                    
+                    // Highlight the correct answer
+                    const correctAnswerButton = document.querySelector(`[data-answer="${currentQuiz.correctAnswer}"]`);
+                    if (correctAnswerButton) {
+                        correctAnswerButton.classList.add('correct-answer');
+                    }
+                    appendBotMessage(`That's okay! The correct answer is **${currentQuiz.correctAnswer}**. ${currentQuiz.explanation}`);
+                }
+                
+                nextButton.disabled = false;
+                nextButton.classList.remove('bg-gray-400', 'cursor-not-allowed');
+                nextButton.classList.add('bg-blue-600', 'hover:bg-blue-700', 'cursor-pointer');
+                
+                // Add listener to the next button
+                nextButton.addEventListener('click', () => {
+                    // This is where you would transition to the next lesson or a follow-up
+                    lessonDisplay.innerHTML = `
+                        <div class="text-center text-gray-400">
+                            <p class="text-2xl font-bold mb-4">📚 Lesson Complete!</p>
+                            <p>You can ask another question to continue your learning journey.</p>
+                        </div>
+                    `;
+                });
+            }
+
+            // Event listener for form submission
+            chatForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const userText = userInput.value.trim();
+                if (!userText) return;
+
+                sendButton.disabled = true;
+                userInput.value = '';
+                errorMessage.classList.add('hidden');
+                
+                appendUserMessage(userText);
+                showThinkingIndicator();
+
+                const lessonData = await generateLesson(userText);
+                
+                hideThinkingIndicator();
+                sendButton.disabled = false;
+
+                if (lessonData) {
+                    renderLesson(lessonData);
+                } else {
+                    errorMessage.textContent = "Could not generate a lesson. Please check your request.";
+                    errorMessage.classList.remove('hidden');
+                }
+            });
+
+            // Initial message
+            appendUserMessage("Hello! I am your personal tutor. What would you like to learn about today?");
+        });
+    </script>
+</body>
+</html>
